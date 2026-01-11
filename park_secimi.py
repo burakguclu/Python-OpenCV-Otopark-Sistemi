@@ -18,38 +18,48 @@ try:
 except:
     posList = []
 
-temp_point = None
+drawing = False
+ix, iy = -1, -1
+img_temp = img_first_frame.copy()
 
 def mouseClick(event, x, y, flags, param):
-    global temp_point, posList
+    global ix, iy, drawing, posList, img_temp
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if temp_point is None:
-            temp_point = (x, y)
-        else:
-            posList.append((temp_point, (x, y)))
-            temp_point = None
-            with open(file_path, 'wb') as f:
-                pickle.dump(posList, f)
+        drawing = True
+        ix, iy = x, y
 
-    if event == cv2.EVENT_RBUTTONDOWN:
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if drawing:
+            img_temp = img_first_frame.copy()
+            for line in posList:
+                cv2.line(img_temp, line[0], line[1], (255, 0, 255), 2)
+            cv2.line(img_temp, (ix, iy), (x, y), (255, 0, 0), 2)
+            cv2.imshow(window_name, img_temp)
+
+    elif event == cv2.EVENT_LBUTTONUP:
+        drawing = False
+        posList.append(((ix, iy), (x, y)))
+        with open(file_path, 'wb') as f:
+             pickle.dump(posList, f)
+        img_temp = img_first_frame.copy()
+
+    elif event == cv2.EVENT_RBUTTONDOWN:
         if len(posList) > 0:
             posList.pop()
             with open(file_path, 'wb') as f:
                 pickle.dump(posList, f)
 
 cv2.setMouseCallback(window_name, mouseClick)
+cv2.imshow(window_name, img_first_frame)
 
 while True:
-    img = img_first_frame.copy()
+    if not drawing:
+        img_display = img_first_frame.copy()
+        for line in posList:
+            cv2.line(img_display, line[0], line[1], (255, 0, 255), 2)
+        cv2.imshow(window_name, img_display)
     
-    for line in posList:
-        cv2.line(img, line[0], line[1], (255, 0, 255), 2)
-        
-    if temp_point:
-        cv2.circle(img, temp_point, 5, (0,0,255), -1)
-
-    cv2.imshow(window_name, img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
