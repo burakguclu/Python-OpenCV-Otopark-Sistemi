@@ -4,34 +4,49 @@ import numpy as np
 
 video_path = 'otoparkVideo.mp4'
 pickle_path = 'park_koordinatlari'
-window_name = "Otopark Analizi"
+window_name = "Otopark Analizi (Cizgi)"
+check_thickness = 5
 
 cap = cv2.VideoCapture(video_path)
+
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(window_name, 1280, 720)
 
-with open(pickle_path, 'rb') as f:
-    posList = pickle.load(f)
+try:
+    with open(pickle_path, 'rb') as f:
+        posList = pickle.load(f)
+except:
+    exit()
 
 def checkParkingSpace(imgPro, imgOriginal):
     spaceCounter = 0
+
     for line in posList:
         pt1, pt2 = line
         
         mask = np.zeros(imgPro.shape, np.uint8)
-        cv2.line(mask, pt1, pt2, 255, 3) 
+        cv2.line(mask, pt1, pt2, 255, check_thickness)
+        
         masked_image = cv2.bitwise_and(imgPro, imgPro, mask=mask)
         count = cv2.countNonZero(masked_image)
+        
+        line_length = np.hypot(pt2[0]-pt1[0], pt2[1]-pt1[1])
+        area = line_length * check_thickness
+        
+        density = count / area if area > 0 else 0
 
-        if count < 100:
+        if density < 0.18: 
             color = (0, 255, 0)
+            thickness = 5
             spaceCounter += 1
         else:
             color = (0, 0, 255)
-        
-        cv2.line(imgOriginal, pt1, pt2, color, 3)
-    
-    cv2.putText(imgOriginal, f'Bos: {spaceCounter}/{len(posList)}', (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            thickness = 2
+
+        cv2.line(imgOriginal, pt1, pt2, color, thickness)
+
+    cv2.rectangle(imgOriginal, (20, 20), (270, 70), (0,0,0), -1) 
+    cv2.putText(imgOriginal, f'Bos Alan: {spaceCounter}/{len(posList)}', (30, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
 while True:
     if cap.get(cv2.CAP_PROP_POS_FRAMES) == cap.get(cv2.CAP_PROP_FRAME_COUNT):
@@ -50,6 +65,11 @@ while True:
     imgDilate = cv2.dilate(imgMedian, kernel, iterations=1)
 
     checkParkingSpace(imgDilate, img)
+    
     cv2.imshow(window_name, img)
+    
     if cv2.waitKey(10) & 0xFF == ord('q'):
         break
+
+cap.release()
+cv2.destroyAllWindows()
